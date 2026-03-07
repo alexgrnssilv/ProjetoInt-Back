@@ -24,10 +24,11 @@ const origensPermitidas = ['http://localhost:5173', 'http://localhost:3000'];
 if (process.env.FRONTEND_URL) {
     origensPermitidas.push(process.env.FRONTEND_URL);
 }
+console.log('✅ Origens permitidas no CORS:', origensPermitidas);
 
 
 app.use(cors({
-    origin: origensPermitidas,
+    origin: true,
     credentials: true,
 }))
 
