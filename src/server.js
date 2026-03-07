@@ -26,8 +26,8 @@ if (process.env.FRONTEND_URL) {
 }
 
 app.use(cors({
-    origin: origensPermitidas,
-    credentials: true, // Necessário para enviar cookies/headers de autenticação
+    origin: true,
+    credentials: true,
 }))
 
 // Faz o Express interpretar o corpo das requisições como JSON
