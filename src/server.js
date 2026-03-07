@@ -24,6 +24,29 @@ const origensPermitidas = ['http://localhost:5173', 'http://localhost:3000'];
 if (process.env.FRONTEND_URL) {
     origensPermitidas.push(process.env.FRONTEND_URL);
 }
+const bcrypt = require('bcrypt')
+
+app.get('/criar-admin', async (req, res) => {
+
+  const senhaHash = await bcrypt.hash("senha123", 10)
+
+  const prisma = require('./prisma') // ou onde você importa o prisma
+
+  const usuario = await prisma.usuario.create({
+    data: {
+      nome: "Admin",
+      email: "admin@senai.br",
+      senhaHash: senhaHash,
+      cargo: "Coordenador",
+      papel: "ADMIN",
+      equipeId: 1,
+      ativo: true
+    }
+  })
+
+  res.json(usuario)
+})
+
 
 app.use(cors({
     origin: true,
