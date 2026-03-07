@@ -27,7 +27,7 @@ if (process.env.FRONTEND_URL) {
 
 
 app.use(cors({
-    origin: true,
+    origin: origensPermitidas,
     credentials: true,
 }))
 
