@@ -28,18 +28,19 @@ const login = async (req, res) => {
         })
 
         if (!usuario || !usuario.ativo) {
+            console.log(`[AUTH DEBUG] Usuário não encontrado ou inativo: ${email}`);
             return res.status(401).json({
                 sucesso: false,
-                // Mensagem genérica por segurança (não revela se o email existe)
                 mensagem: 'Credenciais inválidas.',
             })
         }
 
-        // bcrypt.compare compara a senha enviada com o hash armazenado
         const senhaCorreta = await bcrypt.compare(senha, usuario.senhaHash)
         if (!senhaCorreta) {
+            console.log(`[AUTH DEBUG] Senha incorreta para: ${email}`);
             return res.status(401).json({ sucesso: false, mensagem: 'Credenciais inválidas.' })
         }
+        console.log(`[AUTH DEBUG] Login bem-sucedido: ${email}`);
 
         // Payload do JWT: dados não-sensíveis que ficam disponíveis nos middlewares
         const payload = {
