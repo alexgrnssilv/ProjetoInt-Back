@@ -1,5 +1,5 @@
 // =====================================================
-// server.js — Ponto de Entrada da API SENAI-CIC
+// server.js — Ponto de Entrada da API Gestão091
 // =====================================================
 
 // Carrega as variáveis do .env PRIMEIRO (antes de qualquer import que precise delas)
@@ -50,7 +50,7 @@ app.use('/api/avaliacoes', avaliacaoRoutes)
 
 // Rota de verificação de saúde da API (health check)
 app.get('/api/health', (_req, res) => {
-    res.json({ status: 'OK', mensagem: 'API SENAI-CIC funcionando!', timestamp: new Date().toISOString() })
+    res.json({ status: 'OK', mensagem: 'API Gestão091 funcionando!', timestamp: new Date().toISOString() })
 })
 
 // ---- HANDLER DE ROTAS NÃO ENCONTRADAS ----
@@ -67,7 +67,7 @@ app.use((err, _req, res, _next) => {
 
 // ---- INICIALIZA O SERVIDOR ----
 app.listen(PORTA, () => {
-    console.log(`\n🚀 API SENAI-CIC rodando em http://localhost:${PORTA}`)
+    console.log(`\n🚀 API Gestão091 rodando em http://localhost:${PORTA}`)
     console.log(`📊 Health check: http://localhost:${PORTA}/api/health\n`)
 })
 
