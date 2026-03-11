@@ -21,10 +21,23 @@ router.get('/competencias', async (req, res) => {
 // GET /avaliacoes/ciclo-ativo - Buscar ciclo atual (para todos os perfis)
 router.get('/ciclo-ativo', async (req, res) => {
     try {
-        const ciclo = await prisma.cicloAvaliacao.findFirst({
-            where: { fechado: false },
-            orderBy: { criadoEm: 'desc' }
-        })
+        const agora = new Date();
+        // Prioriza ciclo cuja data de hoje está dentro do range
+        let ciclo = await prisma.cicloAvaliacao.findFirst({
+            where: {
+                fechado: false,
+                dataInicio: { lte: agora },
+                dataFim: { gte: agora }
+            },
+            orderBy: { dataInicio: 'desc' }
+        });
+        // Fallback: se nenhum ciclo bate com a data, pega o mais recente não fechado
+        if (!ciclo) {
+            ciclo = await prisma.cicloAvaliacao.findFirst({
+                where: { fechado: false },
+                orderBy: { dataInicio: 'desc' }
+            });
+        }
         res.json(ciclo)
     } catch (e) {
         res.status(500).json({ error: 'Erro ao buscar ciclo ativo' })
@@ -35,7 +48,14 @@ router.get('/ciclo-ativo', async (req, res) => {
 router.get('/pendentes', async (req, res) => {
     try {
         const usuarioId = req.usuario.id;
-        const cicloAtivo = await prisma.cicloAvaliacao.findFirst({ where: { fechado: false } });
+        const agora = new Date();
+        let cicloAtivo = await prisma.cicloAvaliacao.findFirst({
+            where: { fechado: false, dataInicio: { lte: agora }, dataFim: { gte: agora } },
+            orderBy: { dataInicio: 'desc' }
+        });
+        if (!cicloAtivo) {
+            cicloAtivo = await prisma.cicloAvaliacao.findFirst({ where: { fechado: false }, orderBy: { dataInicio: 'desc' } });
+        }
         if (!cicloAtivo) {
             return res.json({ pendentes: 0, colegasPendentes: [], autoAvaliacaoPendente: false, cicloId: null });
         }
@@ -125,6 +145,24 @@ router.post('/', async (req, res) => {
     }
 
     try {
+        // [NOVO] Validação para impedir múltiplas avaliações do mesmo tipo no mesmo ciclo
+        if (tipo === 'AUTO' || tipo === 'PAR') {
+            const avaliacaoExistente = await prisma.avaliacao.findFirst({
+                where: {
+                    avaliadorId: req.usuario.id,
+                    avaliadoId: parseInt(avaliadoId),
+                    cicloId: parseInt(cicloId),
+                    tipo: tipo
+                }
+            });
+
+            if (avaliacaoExistente) {
+                return res.status(400).json({
+                    mensagem: `Você já realizou esta ${tipo === 'AUTO' ? 'autoavaliação' : 'avaliação para este colega'} neste ciclo.`
+                });
+            }
+        }
+
         const result = await prisma.$transaction(
             avaliacoes.map(av => prisma.avaliacao.upsert({
                 where: {

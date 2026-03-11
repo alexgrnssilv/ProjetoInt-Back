@@ -1,6 +1,0 @@
-﻿--- LISTA DE USU├üRIOS NO BANCO ---
-ID: 1 | Nome: Admin Teste | Email: admin@teste.com | Papel: ADMIN | Ativo: true
-ID: 3 | Nome: Administrador SENAI | Email: admin@senai.br | Papel: ADMIN | Ativo: true
-ID: 4 | Nome: Jo├úo Silva | Email: joao.silva@senai.br | Papel: COLABORADOR | Ativo: true
-ID: 5 | Nome: Maria Santos | Email: maria.santos@senai.br | Papel: COLABORADOR | Ativo: true
-ID: 6 | Nome: Pedro Alves | Email: pedro.alves@senai.br | Papel: COLABORADOR | Ativo: true

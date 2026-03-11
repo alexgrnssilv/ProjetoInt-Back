@@ -50,7 +50,25 @@ const getDashboardStats = async (req, res) => {
         })
 
         const filtroAvaliacao = {}
-        if (cicloId) filtroAvaliacao.cicloId = parseInt(cicloId)
+        if (cicloId) {
+            filtroAvaliacao.cicloId = parseInt(cicloId)
+        } else {
+            // Auto-filtrar pelo ciclo vigente para que o ranking "resete" a cada ciclo
+            const agora = new Date();
+            let cicloVigente = await prisma.cicloAvaliacao.findFirst({
+                where: { fechado: false, dataInicio: { lte: agora }, dataFim: { gte: agora } },
+                orderBy: { dataInicio: 'desc' }
+            });
+            if (!cicloVigente) {
+                cicloVigente = await prisma.cicloAvaliacao.findFirst({
+                    where: { fechado: false },
+                    orderBy: { dataInicio: 'desc' }
+                });
+            }
+            if (cicloVigente) {
+                filtroAvaliacao.cicloId = cicloVigente.id;
+            }
+        }
         if (equipeId) filtroAvaliacao.avaliado = { equipeId: parseInt(equipeId) }
 
         // 2. Buscar avaliações
@@ -113,10 +131,17 @@ const getDashboardStats = async (req, res) => {
         // Ordenação para o RANKING (menores/zerados no final)
         colaboradores.sort((a, b) => b.mediaGeral - a.mediaGeral)
 
-        const cicloAtivoQuery = await prisma.cicloAvaliacao.findFirst({
-            where: { fechado: false },
-            orderBy: { id: 'desc' }
-        })
+        const agora = new Date();
+        let cicloAtivoQuery = await prisma.cicloAvaliacao.findFirst({
+            where: { fechado: false, dataInicio: { lte: agora }, dataFim: { gte: agora } },
+            orderBy: { dataInicio: 'desc' }
+        });
+        if (!cicloAtivoQuery) {
+            cicloAtivoQuery = await prisma.cicloAvaliacao.findFirst({
+                where: { fechado: false },
+                orderBy: { dataInicio: 'desc' }
+            });
+        }
         const cicloAtivoNome = cicloAtivoQuery ? cicloAtivoQuery.nome : 'Nenhum Ciclo';
 
         return res.status(200).json({
@@ -145,13 +170,30 @@ const getPerfilColaborador = async (req, res) => {
     const { cicloId } = req.query
 
     try {
+        // Resolver o ciclo vigente automaticamente se nenhum for informado
+        let cicloFiltro = cicloId ? parseInt(cicloId) : null;
+        if (!cicloFiltro) {
+            const agora = new Date();
+            let cicloVigente = await prisma.cicloAvaliacao.findFirst({
+                where: { fechado: false, dataInicio: { lte: agora }, dataFim: { gte: agora } },
+                orderBy: { dataInicio: 'desc' }
+            });
+            if (!cicloVigente) {
+                cicloVigente = await prisma.cicloAvaliacao.findFirst({
+                    where: { fechado: false },
+                    orderBy: { dataInicio: 'desc' }
+                });
+            }
+            if (cicloVigente) cicloFiltro = cicloVigente.id;
+        }
+
         const [usuario, avaliacoes] = await Promise.all([
             prisma.usuario.findUnique({
                 where: { id: parseInt(id) },
                 select: { id: true, nome: true, cargo: true, equipe: { select: { nome: true } } }
             }),
             prisma.avaliacao.findMany({
-                where: { avaliadoId: parseInt(id), ...(cicloId && { cicloId: parseInt(cicloId) }) },
+                where: { avaliadoId: parseInt(id), ...(cicloFiltro && { cicloId: cicloFiltro }) },
                 include: { competencia: true }
             })
         ])
@@ -178,10 +220,70 @@ const getPerfilColaborador = async (req, res) => {
             }
         })
 
-        return res.status(200).json({ sucesso: true, colaborador: usuario, radarData })
+        // [NOVO] Extrair notificações de plano de ação das observações da liderança
+        const notificacoes = [];
+        const hashesSalvos = new Set();
+        avaliacoes.filter(av => av.tipo === 'LIDER' && av.observacoes).forEach(av => {
+            try {
+                const hash = av.observacoes;
+                if (!hashesSalvos.has(hash)) {
+                    hashesSalvos.add(hash);
+                    const obsObj = JSON.parse(av.observacoes);
+                    if (obsObj.planoMelhoria || obsObj.expectativaSelecionada) {
+                        notificacoes.push({
+                            ...obsObj,
+                            data: av.criadoEm,
+                            hashOriginal: hash
+                        });
+                    }
+                }
+            } catch (e) {
+                // Se não for JSON (avaliações antigas), ignora.
+            }
+        });
+
+        // Retornar usuário junto com o array de notificações anexado
+        return res.status(200).json({ sucesso: true, colaborador: { ...usuario, notificacoes }, radarData })
     } catch (erro) {
         res.status(500).json({ sucesso: false, mensagem: 'Erro ao buscar perfil.' })
     }
 }
 
-module.exports = { getDashboardStats, getPerfilColaborador }
+/**
+ * POST /api/dashboard/colaborador/:id/notificacoes/ler
+ * Marca uma determinada notificação como lida no DB
+ */
+const marcarNotificacaoLida = async (req, res) => {
+    const { id } = req.params;
+    const { hash } = req.body; // A string original do JSON usada como hash
+
+    try {
+        if (!hash) return res.status(400).json({ sucesso: false, mensagem: 'Identificador (hash) da notificação não fornecido.' });
+
+        const avaliacoes = await prisma.avaliacao.findMany({
+            where: { avaliadoId: parseInt(id), tipo: 'LIDER', observacoes: hash }
+        });
+
+        if (avaliacoes.length === 0) {
+            return res.status(404).json({ sucesso: false, mensagem: 'Notificação não encontrada ou já modificada.' });
+        }
+
+        const obsObj = JSON.parse(hash);
+        obsObj.lida = true;
+        const newHash = JSON.stringify(obsObj); // Novo JSON contendo lida: true
+
+        await prisma.$transaction(
+            avaliacoes.map(av => prisma.avaliacao.update({
+                where: { id: av.id },
+                data: { observacoes: newHash }
+            }))
+        );
+
+        res.json({ sucesso: true, novaNotificacao: { ...obsObj } });
+    } catch (erro) {
+        console.error('[Dashboard] Erro ao marcar como lida:', erro);
+        res.status(500).json({ sucesso: false, mensagem: 'Erro ao processar a requisição.' });
+    }
+}
+
+module.exports = { getDashboardStats, getPerfilColaborador, marcarNotificacaoLida }

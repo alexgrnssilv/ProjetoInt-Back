@@ -159,13 +159,24 @@ router.get('/competencias', async (req, res) => {
     }
 })
 
-// Buscar ciclo ativo (não fechado)
+// Buscar ciclo ativo (baseado na data vigente)
 router.get('/ciclo-ativo', async (req, res) => {
     try {
-        const ciclo = await prisma.cicloAvaliacao.findFirst({
-            where: { fechado: false },
-            orderBy: { criadoEm: 'desc' }
-        })
+        const agora = new Date();
+        let ciclo = await prisma.cicloAvaliacao.findFirst({
+            where: {
+                fechado: false,
+                dataInicio: { lte: agora },
+                dataFim: { gte: agora }
+            },
+            orderBy: { dataInicio: 'desc' }
+        });
+        if (!ciclo) {
+            ciclo = await prisma.cicloAvaliacao.findFirst({
+                where: { fechado: false },
+                orderBy: { dataInicio: 'desc' }
+            });
+        }
         res.json(ciclo)
     } catch (e) {
         console.error(e)

@@ -5,7 +5,7 @@
 const express = require('express')
 const router = express.Router()
 const prisma = require('../lib/prisma')
-const { getDashboardStats, getPerfilColaborador } = require('../controllers/dashboard.controller')
+const { getDashboardStats, getPerfilColaborador, marcarNotificacaoLida } = require('../controllers/dashboard.controller')
 const { verificarToken } = require('../middleware/authMiddleware')
 const { requireRole, requireOwnerOrAdmin } = require('../middleware/roleMiddleware')
 
@@ -16,6 +16,8 @@ router.get('/stats', verificarToken, requireRole('ADMIN'), getDashboardStats)
 // GET /api/dashboard/colaborador/:id — Admin ou o próprio colaborador
 // Anonimato garantido: avaliadorId nunca retorna ao frontend
 router.get('/colaborador/:id', verificarToken, requireOwnerOrAdmin('id'), getPerfilColaborador)
+// GET /api/dashboard/colaborador/:id/notificacoes/ler — Marcar notificação como lida
+router.post('/colaborador/:id/notificacoes/ler', verificarToken, marcarNotificacaoLida)
 
 // GET /api/dashboard/equipe — Membros da equipe do colaborador
 router.get('/equipe', verificarToken, async (req, res) => {
