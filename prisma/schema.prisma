@@ -21,7 +21,7 @@ enum Role {
 }
 
 // ---- ENUM: Níveis de Avaliação Padronizados ----
-// Seguem obrigatoriamente a escala de 1 a 4 definida pelo negócio
+// São quatro níveis qualitativos derivados da pontuação numérica de 1 a 10.
 enum NivelAvaliacao {
   CRITICO           // 1 - Vermelho
   EM_DESENVOLVIMENTO // 2 - Amarelo

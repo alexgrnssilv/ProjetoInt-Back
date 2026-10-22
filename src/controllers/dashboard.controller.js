@@ -9,7 +9,7 @@ const prisma = require('../lib/prisma')
  * Mapeia a pontuação média para a cor hexadecimal do nível
  * Regra de negócio: 4 níveis padronizados obrigatórios
  *
- * @param {number} media - Média das pontuações (1.0 a 4.0)
+ * @param {number} media - Média das pontuações (1.0 a 10.0), convertida em um dos quatro níveis
  * @returns {{ nivel: string, cor: string }}
  */
 const mapearNivelECor = (media) => {
